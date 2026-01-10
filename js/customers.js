@@ -63,21 +63,21 @@ const CustomersManager = {
             const index = this.customers.findIndex(c => c.id === id);
             if (index !== -1) {
                 this.customers[index] = customer;
+                await OfflineManager.update('customers', customer);
             }
         } else {
             // Add new
             this.customers.push(customer);
+            await OfflineManager.save('customers', customer);
         }
-
-        await OfflineManager.saveData('customers', this.customers);
         this.closeModal();
         this.render();
     },
 
     async deleteCustomer(id) {
         if (confirm('Are you sure you want to delete this customer?')) {
+            await OfflineManager.delete('customers', id);
             this.customers = this.customers.filter(c => c.id !== id);
-            await OfflineManager.saveData('customers', this.customers);
             this.render();
         }
     },
@@ -142,7 +142,7 @@ const CustomersManager = {
             }
 
             customer.updatedAt = new Date().toISOString();
-            await OfflineManager.saveData('customers', this.customers);
+            await OfflineManager.update('customers', customer);
         }
     },
 
@@ -152,7 +152,7 @@ const CustomersManager = {
         if (customer) {
             customer.balanceDue = Math.max(0, customer.balanceDue - amount);
             customer.updatedAt = new Date().toISOString();
-            await OfflineManager.saveData('customers', this.customers);
+            await OfflineManager.update('customers', customer);
             this.render();
         }
     },

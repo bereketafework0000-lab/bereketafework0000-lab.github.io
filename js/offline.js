@@ -4,7 +4,7 @@
 
 const OfflineManager = {
     DB_NAME: 'BusinessManagerDB',
-    DB_VERSION: 1,
+    DB_VERSION: 2,
     db: null,
 
     async init() {
@@ -72,9 +72,18 @@ const OfflineManager = {
         });
     },
 
+    async getDb() {
+        if (this.db) return this.db;
+        if (!this._initPromise) {
+            this._initPromise = this.initDB();
+        }
+        return this._initPromise;
+    },
+
     async save(storeName, data) {
+        const db = await this.getDb();
         return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([storeName], 'readwrite');
+            const transaction = db.transaction([storeName], 'readwrite');
             const store = transaction.objectStore(storeName);
             const request = store.add({ ...data, synced: false, timestamp: Date.now() });
 
@@ -84,8 +93,9 @@ const OfflineManager = {
     },
 
     async update(storeName, data) {
+        const db = await this.getDb();
         return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([storeName], 'readwrite');
+            const transaction = db.transaction([storeName], 'readwrite');
             const store = transaction.objectStore(storeName);
             const request = store.put({ ...data, synced: false, timestamp: Date.now() });
 
@@ -95,8 +105,9 @@ const OfflineManager = {
     },
 
     async delete(storeName, id) {
+        const db = await this.getDb();
         return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([storeName], 'readwrite');
+            const transaction = db.transaction([storeName], 'readwrite');
             const store = transaction.objectStore(storeName);
             const request = store.delete(id);
 
@@ -106,8 +117,9 @@ const OfflineManager = {
     },
 
     async getAll(storeName) {
+        const db = await this.getDb();
         return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([storeName], 'readonly');
+            const transaction = db.transaction([storeName], 'readonly');
             const store = transaction.objectStore(storeName);
             const request = store.getAll();
 
@@ -117,8 +129,9 @@ const OfflineManager = {
     },
 
     async getUnsynced(storeName) {
+        const db = await this.getDb();
         return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([storeName], 'readonly');
+            const transaction = db.transaction([storeName], 'readonly');
             const store = transaction.objectStore(storeName);
             const index = store.index('synced');
             const request = index.getAll(false);
@@ -129,8 +142,9 @@ const OfflineManager = {
     },
 
     async markAsSynced(storeName, id) {
+        const db = await this.getDb();
         return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([storeName], 'readwrite');
+            const transaction = db.transaction([storeName], 'readwrite');
             const store = transaction.objectStore(storeName);
             const getRequest = store.get(id);
 
@@ -150,8 +164,9 @@ const OfflineManager = {
     },
 
     async addToSyncQueue(action, storeName, data) {
+        const db = await this.getDb();
         return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction(['syncQueue'], 'readwrite');
+            const transaction = db.transaction(['syncQueue'], 'readwrite');
             const store = transaction.objectStore('syncQueue');
             const request = store.add({
                 action,
@@ -166,8 +181,9 @@ const OfflineManager = {
     },
 
     async getSyncQueue() {
+        const db = await this.getDb();
         return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction(['syncQueue'], 'readonly');
+            const transaction = db.transaction(['syncQueue'], 'readonly');
             const store = transaction.objectStore('syncQueue');
             const request = store.getAll();
 
@@ -177,14 +193,36 @@ const OfflineManager = {
     },
 
     async clearSyncQueue() {
+        const db = await this.getDb();
         return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction(['syncQueue'], 'readwrite');
+            const transaction = db.transaction(['syncQueue'], 'readwrite');
             const store = transaction.objectStore('syncQueue');
             const request = store.clear();
 
             request.onsuccess = () => resolve();
             request.onerror = () => reject(request.error);
         });
+    },
+
+    async saveData(storeName, data) {
+        const db = await this.getDb();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([storeName], 'readwrite');
+            const store = transaction.objectStore(storeName);
+
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+
+            if (Array.isArray(data)) {
+                data.forEach(item => store.put(item));
+            } else {
+                store.put(data);
+            }
+        });
+    },
+
+    async getData(storeName) {
+        return this.getAll(storeName);
     },
 
     registerServiceWorker() {
