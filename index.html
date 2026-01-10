@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="MAHI TECHNOLOGY BUSINESS MANAGER - Track sales, expenses, and manage your business">
+    <meta name="theme-color" content="#6366f1">
+    <title>MAHI TECHNOLOGY BUSINESS MANAGER</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Chart.js for Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+    <!-- Offline Indicator -->
+    <div id="offline-indicator" class="offline-indicator hidden">
+        <i class="fas fa-wifi-slash"></i>
+        <span>You're offline. Changes will sync when you're back online.</span>
+    </div>
+
+    <!-- PIN Login Screen -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="logo-stack" style="position: relative; width: 60px; height: 60px; margin: 0 auto 15px;">
+                    <i class="fas fa-laptop"
+                        style="font-size: 3rem; color: var(--primary); position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);"></i>
+                    <i class="fas fa-wrench"
+                        style="font-size: 1.8rem; color: var(--secondary); position: absolute; bottom: -5px; right: -5px; transform: rotate(-15deg); text-shadow: 2px 2px 4px rgba(0,0,0,0.3); background: var(--surface); border-radius: 50%; padding: 2px;"></i>
+                </div>
+                <h1>MAHI TECHNOLOGY</h1>
+                <p>Enter your PIN to continue</p>
+            </div>
+
+            <div id="pin-setup" class="pin-setup hidden">
+                <p class="setup-message">Welcome! Set up your PIN (4-6 digits)</p>
+                <input type="password" id="setup-pin" class="pin-input" placeholder="Create PIN" maxlength="6"
+                    pattern="[0-9]*" inputmode="numeric">
+                <input type="password" id="confirm-pin" class="pin-input" placeholder="Confirm PIN" maxlength="6"
+                    pattern="[0-9]*" inputmode="numeric">
+                <button id="create-pin-btn" class="btn btn-primary">
+                    <i class="fas fa-lock"></i>
+                    Create PIN
+                </button>
+                <p class="pin-hint">Your PIN will be stored securely on this device</p>
+            </div>
+
+            <div id="pin-login" class="pin-login">
+                <input type="password" id="login-pin" class="pin-input" placeholder="Enter PIN" maxlength="6"
+                    pattern="[0-9]*" inputmode="numeric">
+                <button id="login-btn" class="btn btn-primary">
+                    <i class="fas fa-unlock"></i>
+                    Unlock
+                </button>
+                <p id="login-error" class="error-message hidden"></p>
+                <button id="reset-pin-btn" class="btn-link">Forgot PIN? Reset App</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="app" class="app hidden">
+        <!-- Navigation Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-stack-sm" style="position: relative; width: 32px; height: 32px; margin-right: 10px;">
+                    <i class="fas fa-laptop"
+                        style="font-size: 1.5rem; color: var(--primary); position: absolute; bottom: 2px; left: 0;"></i>
+                    <i class="fas fa-wrench"
+                        style="font-size: 0.9rem; color: var(--secondary); position: absolute; bottom: -2px; right: -4px; transform: rotate(-15deg); background: var(--surface-glass); border-radius: 50%; padding: 1px;"></i>
+                </div>
+                <h2>MAHI TECHNOLOGY</h2>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-page="sales">
+                    <i class="fas fa-cash-register"></i>
+                    <span>Sales</span>
+                </a>
+                <a href="#" class="nav-item" data-page="expenses">
+                    <i class="fas fa-receipt"></i>
+                    <span>Expenses</span>
+                </a>
+                <a href="#" class="nav-item" data-page="services">
+                    <i class="fas fa-tools"></i>
+                    <span>Services</span>
+                </a>
+                <a href="#" class="nav-item" data-page="customers">
+                    <i class="fas fa-users"></i>
+                    <span>Customers</span>
+                </a>
+                <a href="#" class="nav-item" data-page="tenders">
+                    <i class="fas fa-gavel"></i>
+                    <span>Tenders</span>
+                </a>
+                <a href="#" class="nav-item" data-page="reports">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Reports</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sync-status">
+                    <i class="fas fa-sync-alt" id="sync-icon"></i>
+                    <span id="sync-text">Synced</span>
+                </div>
+                <button id="google-connect-btn" class="btn btn-google">
+                    <i class="fab fa-google"></i>
+                    <span id="google-status">Connect Google</span>
+                </button>
+                <button id="theme-toggle-btn" class="btn btn-secondary">
+                    <i class="fas fa-moon" id="theme-icon"></i>
+                    Toggle Theme
+                </button>
+                <button id="logout-btn" class="btn btn-secondary">
+                    <i class="fas fa-lock"></i>
+                    Lock App
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Page -->
+            <div id="dashboard-page" class="page active">
+                <header class="page-header">
+                    <h1>Dashboard</h1>
+                    <div class="header-actions">
+                        <select id="period-selector" class="select">
+                            <option value="7">Last 7 Days</option>
+                            <option value="30" selected>Last 30 Days</option>
+                            <option value="90">Last 90 Days</option>
+                            <option value="365">Last Year</option>
+                        </select>
+                    </div>
+                </header>
+
+                <!-- Grand Revenue Hero -->
+                <div class="hero-stats">
+                    <div class="hero-card">
+                        <div class="hero-content">
+                            <p class="hero-label">Grand Total Business Value</p>
+                            <h2 class="hero-value" id="grand-total-revenue">$0.00</h2>
+                            <p class="hero-subtitle">Combined Sales, Services & Won Tenders</p>
+                        </div>
+                        <div class="hero-icon">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                    </div>
+                    <div class="hero-card hero-card-expense">
+                        <div class="hero-content">
+                            <p class="hero-label">Grand Total Expenses</p>
+                            <h2 class="hero-value" id="grand-total-expenses">$0.00</h2>
+                            <p class="hero-subtitle">Combined Expenses & Costs</p>
+                        </div>
+                        <div class="hero-icon">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <!-- Tenders Mini Analytic -->
+                    <div class="stat-card stat-card-tender">
+                        <div class="stat-icon stat-icon-tenders">
+                            <i class="fas fa-gavel"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Won Tenders</p>
+                            <h3 class="stat-value" id="dash-tender-value">$0.00</h3>
+                            <p class="stat-subtitle" id="dash-tender-count">0 Won</p>
+                        </div>
+                    </div>
+
+                    <!-- Services Mini Analytic -->
+                    <div class="stat-card stat-card-service">
+                        <div class="stat-icon stat-icon-services">
+                            <i class="fas fa-tools"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Active Services</p>
+                            <h3 class="stat-value" id="dash-service-count">0</h3>
+                            <p class="stat-subtitle" id="dash-service-value">Est. $0.00</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon-sales">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Total Sales</p>
+                            <h3 class="stat-value" id="total-sales">$0.00</h3>
+                            <p class="stat-change positive" id="sales-change">
+                                <i class="fas fa-arrow-up"></i> 0%
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon-expenses">
+                            <i class="fas fa-arrow-down"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Total Expenses</p>
+                            <h3 class="stat-value" id="total-expenses">$0.00</h3>
+                            <p class="stat-change negative" id="expenses-change">
+                                <i class="fas fa-arrow-up"></i> 0%
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon-profit">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Net Profit</p>
+                            <h3 class="stat-value" id="net-profit">$0.00</h3>
+                            <p class="stat-change" id="profit-change">
+                                <i class="fas fa-minus"></i> 0%
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon stat-icon-transactions">
+                            <i class="fas fa-exchange-alt"></i>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Transactions</p>
+                            <h3 class="stat-value" id="total-transactions">0</h3>
+                            <p class="stat-subtitle">Combined entries</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Revenue Overview</h3>
+                        <canvas id="revenue-chart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Expense Categories</h3>
+                        <canvas id="expense-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sales Page -->
+            <div id="sales-page" class="page">
+                <header class="page-header">
+                    <h1>Sales</h1>
+                    <div class="header-actions">
+                        <input type="search" id="sales-search" class="search-input" placeholder="Search sales...">
+                        <button id="add-sale-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            Add Sale
+                        </button>
+                    </div>
+                </header>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sales-table-body">
+                            <tr class="empty-state">
+                                <td colspan="5">
+                                    <i class="fas fa-inbox"></i>
+                                    <p>No sales yet. Click "Add Sale" to get started!</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Expenses Page -->
+            <div id="expenses-page" class="page">
+                <header class="page-header">
+                    <h1>Expenses</h1>
+                    <div class="header-actions">
+                        <input type="search" id="expenses-search" class="search-input" placeholder="Search expenses...">
+                        <button id="add-expense-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            Add Expense
+                        </button>
+                    </div>
+                </header>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expenses-table-body">
+                            <tr class="empty-state">
+                                <td colspan="5">
+                                    <i class="fas fa-inbox"></i>
+                                    <p>No expenses yet. Click "Add Expense" to get started!</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Services/Maintenance Page -->
+            <div id="services-page" class="page">
+                <header class="page-header">
+                    <h1>Computer Services</h1>
+                    <div class="header-actions">
+                        <input type="search" id="services-search" class="search-input" placeholder="Search services...">
+                        <button id="add-service-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            Add Service
+                        </button>
+                    </div>
+                </header>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Phone</th>
+                                <th>Problem</th>
+                                <th>Status</th>
+                                <th>Due Date</th>
+                                <th>Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="services-table-body">
+                            <tr class="empty-state">
+                                <td colspan="7">
+                                    <i class="fas fa-tools"></i>
+                                    <p>No service records yet. Click "Add Service" to get started!</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Customers Page -->
+            <div id="customers-page" class="page">
+                <header class="page-header">
+                    <h1>Customers</h1>
+                    <div class="header-actions">
+                        <input type="search" id="customers-search" class="search-input"
+                            placeholder="Search customers...">
+                        <button id="add-customer-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            Add Customer
+                        </button>
+                    </div>
+                </header>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Total Purchases</th>
+                                <th>Balance Due</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customers-table-body">
+                            <tr class="empty-state">
+                                <td colspan="6">
+                                    <i class="fas fa-users"></i>
+                                    <p>No customers yet. Click "Add Customer" to get started!</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tenders Page -->
+            <div id="tenders-page" class="page">
+                <header class="page-header">
+                    <h1><i class="fas fa-gavel"></i> Business Tenders</h1>
+                    <div class="header-actions">
+                        <button id="add-tender-company-btn" class="btn btn-secondary">
+                            <i class="fas fa-building"></i>
+                            Add Company
+                        </button>
+                        <button id="add-tender-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            New Tender
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Tender Summary Cards -->
+                <div class="stats-grid tender-stats">
+                    <div class="stat-card stat-primary">
+                        <div class="stat-icon"><i class="fas fa-file-contract"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="total-tenders-count">0</span>
+                            <span class="stat-label">Total Tenders</span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-success">
+                        <div class="stat-icon"><i class="fas fa-trophy"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="won-tenders-count">0</span>
+                            <span class="stat-label">Won</span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-danger">
+                        <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="lost-tenders-count">0</span>
+                            <span class="stat-label">Lost</span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-warning">
+                        <div class="stat-icon"><i class="fas fa-hourglass-half"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="pending-tenders-count">0</span>
+                            <span class="stat-label">Pending</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Win Rate & Investment -->
+                <div class="tender-analytics">
+                    <div class="analytics-card">
+                        <h3><i class="fas fa-percentage"></i> Win Rate</h3>
+                        <div class="win-rate-circle">
+                            <svg viewBox="0 0 36 36">
+                                <path class="circle-bg"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path id="win-rate-progress" class="circle-progress" stroke-dasharray="0, 100"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                            <span class="win-rate-value" id="win-rate-percent">0%</span>
+                        </div>
+                    </div>
+                    <div class="analytics-card">
+                        <h3><i class="fas fa-coins"></i> Investment Summary</h3>
+                        <div class="investment-stats">
+                            <div class="investment-row">
+                                <span>Total Invested</span>
+                                <span class="text-danger" id="total-investment">$0</span>
+                            </div>
+                            <div class="investment-row">
+                                <span>Total Won Value</span>
+                                <span class="text-success" id="total-won-value">$0</span>
+                            </div>
+                            <div class="investment-row highlight">
+                                <span>ROI</span>
+                                <span id="tender-roi">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="filter-bar">
+                    <select id="tender-company-filter" class="filter-select">
+                        <option value="all">All Companies</option>
+                    </select>
+                    <select id="tender-status-filter" class="filter-select">
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="won">Won</option>
+                        <option value="lost">Lost</option>
+                    </select>
+                    <input type="search" id="tender-search" class="search-input" placeholder="Search tenders...">
+                </div>
+
+                <!-- Tenders List -->
+                <div class="tenders-list" id="tenders-by-company">
+                    <p class="empty-message">No tenders yet. Add a company first, then create tenders.</p>
+                </div>
+            </div>
+
+            <!-- Reports Page -->
+            <div id="reports-page" class="page">
+                <header class="page-header">
+                    <h1><i class="fas fa-file-alt"></i> Reports & Analytics</h1>
+                </header>
+
+                <!-- Report Filters -->
+                <div class="report-filters">
+                    <div class="date-range">
+                        <label>From:</label>
+                        <input type="date" id="report-start-date">
+                        <label>To:</label>
+                        <input type="date" id="report-end-date">
+                        <button id="generate-report-btn" class="btn btn-primary">
+                            <i class="fas fa-chart-bar"></i>
+                            Generate Report
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Report Stats -->
+                <div class="stats-grid report-stats">
+                    <div class="stat-card stat-success">
+                        <div class="stat-icon"><i class="fas fa-arrow-up"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="report-total-sales">$0</span>
+                            <span class="stat-label">Total Sales</span>
+                            <span class="stat-count" id="report-sales-count">0 transactions</span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-danger">
+                        <div class="stat-icon"><i class="fas fa-arrow-down"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="report-total-expenses">$0</span>
+                            <span class="stat-label">Total Expenses</span>
+                            <span class="stat-count" id="report-expenses-count">0 entries</span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-primary">
+                        <div class="stat-icon"><i class="fas fa-balance-scale"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="report-net-profit">$0</span>
+                            <span class="stat-label">Net Profit</span>
+                        </div>
+                    </div>
+                    <div class="stat-card stat-info">
+                        <div class="stat-icon"><i class="fas fa-percent"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="report-profit-margin">0%</span>
+                            <span class="stat-label">Profit Margin</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Cards -->
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <h3><i class="fas fa-trophy"></i> Top Selling Categories</h3>
+                        <div id="top-categories" class="top-list">
+                            <p class="empty-message">No data available</p>
+                        </div>
+                    </div>
+                    <div class="analytics-card">
+                        <h3><i class="fas fa-chart-pie"></i> Expense Breakdown</h3>
+                        <div id="expense-breakdown" class="expense-list">
+                            <p class="empty-message">No data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Sale Modal -->
+    <div id="sale-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="sale-modal-title">Add Sale</h2>
+                <button class="modal-close" data-modal="sale-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="sale-form">
+                <input type="hidden" id="sale-id">
+                <div class="form-group">
+                    <label for="sale-date">Date</label>
+                    <input type="date" id="sale-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="sale-customer">Customer Name</label>
+                    <input type="text" id="sale-customer" placeholder="e.g., John Doe">
+                </div>
+                <div class="form-group">
+                    <label for="sale-description">Description</label>
+                    <input type="text" id="sale-description" placeholder="e.g., Product sale" required>
+                </div>
+                <div class="form-group">
+                    <label for="sale-category">Category</label>
+                    <select id="sale-category" required>
+                        <option value="">Select category</option>
+                        <option value="Phones">Phones</option>
+                        <option value="Laptops">Laptops</option>
+                        <option value="Accessories">Accessories</option>
+                        <option value="TVs">TVs</option>
+                        <option value="Audio">Audio</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sale-amount">Amount</label>
+                    <input type="number" id="sale-amount" step="0.01" min="0" placeholder="0.00" required>
+                </div>
+                <div class="form-group">
+                    <label for="sale-payment-status">Payment Status</label>
+                    <select id="sale-payment-status" required>
+                        <option value="Paid">Paid</option>
+                        <option value="Loan">Loan (Credit)</option>
+                        <option value="Partial">Partial Payment</option>
+                    </select>
+                </div>
+                <div class="form-group" id="paid-amount-group" style="display: none;">
+                    <label for="sale-paid-amount">Amount Paid</label>
+                    <input type="number" id="sale-paid-amount" step="0.01" min="0" placeholder="0.00">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" data-modal="sale-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Save Sale
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Expense Modal -->
+    <div id="expense-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="expense-modal-title">Add Expense</h2>
+                <button class="modal-close" data-modal="expense-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="expense-form">
+                <input type="hidden" id="expense-id">
+                <div class="form-group">
+                    <label for="expense-date">Date</label>
+                    <input type="date" id="expense-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="expense-description">Description</label>
+                    <input type="text" id="expense-description" placeholder="e.g., Office supplies" required>
+                </div>
+                <div class="form-group">
+                    <label for="expense-category">Category</label>
+                    <select id="expense-category" required>
+                        <option value="">Select category</option>
+                        <option value="Rent">Rent</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Salaries">Salaries</option>
+                        <option value="Supplies">Supplies</option>
+                        <option value="Transport">Transport</option>
+                        <option value="Tender">Tender Expenses</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="expense-amount">Amount</label>
+                    <input type="number" id="expense-amount" step="0.01" min="0" placeholder="0.00" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" data-modal="expense-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Save Expense
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Service Modal -->
+    <div id="service-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="service-modal-title">Add Service</h2>
+                <button class="modal-close" data-modal="service-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="service-form">
+                <input type="hidden" id="service-id">
+                <div class="form-group">
+                    <label for="service-customer">Customer Name *</label>
+                    <input type="text" id="service-customer" placeholder="e.g., John Doe" required>
+                </div>
+                <div class="form-group">
+                    <label for="service-phone">Phone Number *</label>
+                    <input type="tel" id="service-phone" placeholder="e.g., 0912345678" required>
+                </div>
+                <div class="form-group">
+                    <label for="service-device">Device Type</label>
+                    <select id="service-device">
+                        <option value="Laptop">Laptop</option>
+                        <option value="Desktop">Desktop</option>
+                        <option value="Printer">Printer</option>
+                        <option value="Phone">Phone</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="service-problem">Problem Description *</label>
+                    <textarea id="service-problem" placeholder="Describe the issue..." rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="service-status">Status</label>
+                    <select id="service-status">
+                        <option value="Pending">Pending</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Waiting Parts">Waiting for Parts</option>
+                        <option value="Delivered">Delivered</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="service-received-date">Date Received</label>
+                    <input type="date" id="service-received-date">
+                </div>
+                <div class="form-group">
+                    <label for="service-due-date">Due Date / Appointment</label>
+                    <input type="date" id="service-due-date">
+                </div>
+                <div class="form-group">
+                    <label for="service-amount">Estimated Amount</label>
+                    <input type="number" id="service-amount" step="0.01" min="0" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="service-notes">Additional Notes</label>
+                    <textarea id="service-notes" placeholder="Any additional notes..." rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" data-modal="service-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Save Service
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Customer Modal -->
+    <div id="customer-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="customer-modal-title">Add Customer</h2>
+                <button class="modal-close" data-modal="customer-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="customer-form">
+                <input type="hidden" id="customer-id">
+                <div class="form-group">
+                    <label for="customer-name">Full Name *</label>
+                    <input type="text" id="customer-name" placeholder="e.g., John Doe" required>
+                </div>
+                <div class="form-group">
+                    <label for="customer-phone">Phone Number *</label>
+                    <input type="tel" id="customer-phone" placeholder="e.g., 0912345678" required>
+                </div>
+                <div class="form-group">
+                    <label for="customer-email">Email</label>
+                    <input type="email" id="customer-email" placeholder="e.g., john@example.com">
+                </div>
+                <div class="form-group">
+                    <label for="customer-address">Address</label>
+                    <textarea id="customer-address" placeholder="Customer address..." rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="customer-notes">Notes</label>
+                    <textarea id="customer-notes" placeholder="Any notes about this customer..." rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" data-modal="customer-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Save Customer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tender Company Modal -->
+    <div id="tender-company-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Issuing Company</h2>
+                <button class="modal-close" data-modal="tender-company-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="tender-company-form">
+                <input type="hidden" id="tender-company-id">
+                <div class="form-group">
+                    <label for="tender-company-name">Company Name *</label>
+                    <input type="text" id="tender-company-name" placeholder="e.g., Ministry of Education" required>
+                </div>
+                <div class="form-group">
+                    <label for="tender-company-contact">Contact Person</label>
+                    <input type="text" id="tender-company-contact" placeholder="Contact name">
+                </div>
+                <div class="form-group">
+                    <label for="tender-company-phone">Phone</label>
+                    <input type="tel" id="tender-company-phone" placeholder="Phone number">
+                </div>
+                <div class="form-group">
+                    <label for="tender-company-email">Email</label>
+                    <input type="email" id="tender-company-email" placeholder="Email address">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" data-modal="tender-company-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Save Company
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tender Modal -->
+    <div id="tender-modal" class="modal hidden">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2 id="tender-modal-title">Add Tender</h2>
+                <button class="modal-close" data-modal="tender-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="tender-form">
+                <input type="hidden" id="tender-id">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="tender-company-select">Issuing Company *</label>
+                        <select id="tender-company-select" required>
+                            <option value="">Select company...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="tender-reference">Reference No. *</label>
+                        <input type="text" id="tender-reference" placeholder="e.g., TND-2024-001" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="tender-title">Tender Title/Description *</label>
+                    <input type="text" id="tender-title" placeholder="e.g., Supply of 50 Laptops" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="tender-submission-date">Submission Date *</label>
+                        <input type="date" id="tender-submission-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="tender-closing-date">Closing Date</label>
+                        <input type="date" id="tender-closing-date">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="tender-bid-amount">My Bid Amount ($) *</label>
+                        <input type="number" id="tender-bid-amount" step="0.01" min="0" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="tender-status">Status *</label>
+                        <select id="tender-status" required>
+                            <option value="pending">Pending</option>
+                            <option value="won">Won</option>
+                            <option value="lost">Lost</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Won Tender Fields (shown when status is 'won') -->
+                <div id="won-tender-fields" class="conditional-fields hidden">
+                    <h4 class="section-title"><i class="fas fa-trophy"></i> Won Details</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="tender-award-amount">Award Amount ($)</label>
+                            <input type="number" id="tender-award-amount" step="0.01" min="0" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="tender-award-date">Award Date</label>
+                            <input type="date" id="tender-award-date">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="tender-products-won">Products Won</label>
+                        <textarea id="tender-products-won" placeholder="e.g., 50x HP Laptops, 50x Mouse"
+                            rows="2"></textarea>
+                    </div>
+                </div>
+
+                <!-- Tender Investment/Expenses -->
+                <div class="tender-expenses-section">
+                    <h4 class="section-title"><i class="fas fa-coins"></i> Investment/Expenses</h4>
+                    <div id="tender-expenses-list" class="expenses-list"></div>
+                    <div class="form-row add-expense-row">
+                        <input type="text" id="new-expense-desc" placeholder="Expense description">
+                        <input type="number" id="new-expense-amount" step="0.01" min="0" placeholder="Amount">
+                        <button type="button" id="add-tender-expense-btn" class="btn btn-sm btn-secondary">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="tender-notes">Notes</label>
+                    <textarea id="tender-notes" placeholder="Additional notes..." rows="2"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" data-modal="tender-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Save Tender
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Google API -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <!-- Application Scripts -->
+    <script src="js/offline.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/sheets-api.js"></script>
+    <script src="js/sales.js"></script>
+    <script src="js/expenses.js"></script>
+    <script src="js/services.js"></script>
+    <script src="js/customers.js"></script>
+    <script src="js/tenders.js"></script>
+    <script src="js/reports.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>

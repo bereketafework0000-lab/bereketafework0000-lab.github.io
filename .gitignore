@@ -1,0 +1,9 @@
+# Business Manager
+
+*.log
+.DS_Store
+Thumbs.db
+.env
+node_modules/
+.vscode/
+.idea/
