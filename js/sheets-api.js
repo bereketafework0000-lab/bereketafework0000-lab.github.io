@@ -3,8 +3,8 @@
 // ============================================
 
 const SheetsAPI = {
-    CLIENT_ID: 'YOUR_CLIENT_ID_HERE', // User needs to replace this
-    API_KEY: 'YOUR_API_KEY_HERE', // User needs to replace this
+    CLIENT_ID: '399988559636-h41n0ev5l4hni5mbdm84n2jaa64mmdpq.apps.googleusercontent.com', // User needs to replace this
+    API_KEY: 'AIzaSyCY1JPzWbQLSWL4y_w9V4-4wcUxb9KcpVQ', // User needs to replace this
     DISCOVERY_DOCS: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
     SCOPES: 'https://www.googleapis.com/auth/spreadsheets',
 
