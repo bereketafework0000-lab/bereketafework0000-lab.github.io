@@ -54,7 +54,7 @@ const ExpensesManager = {
     async loadExpenses() {
         try {
             // Load from IndexedDB
-            if (window.OfflineManager) {
+            if (typeof OfflineManager !== 'undefined') {
                 this.expenses = await OfflineManager.getAll('expenses');
                 this.filteredExpenses = [...this.expenses];
                 this.renderTable();

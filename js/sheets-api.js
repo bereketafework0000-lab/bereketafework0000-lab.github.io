@@ -403,7 +403,7 @@ const SheetsAPI = {
     },
 
     async syncAllData() {
-        if (!this.isConnected || !window.OfflineManager) return;
+        if (!this.isConnected || typeof OfflineManager === 'undefined') return;
 
         this.setSyncStatus('syncing');
 
