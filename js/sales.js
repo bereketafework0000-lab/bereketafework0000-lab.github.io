@@ -54,7 +54,7 @@ const SalesManager = {
     async loadSales() {
         try {
             // Load from IndexedDB
-            if (window.OfflineManager && window.OfflineManager.db) {
+            if (window.OfflineManager) {
                 this.sales = await OfflineManager.getAll('sales');
                 this.filteredSales = [...this.sales];
                 this.renderTable();
