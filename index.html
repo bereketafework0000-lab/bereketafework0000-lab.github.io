@@ -55,10 +55,15 @@
                 <input type="password" id="confirm-pin" class="pin-input" placeholder="Confirm PIN" maxlength="6"
                     pattern="[0-9]*" inputmode="numeric">
                 <button id="create-pin-btn" class="btn btn-primary">
-                    <i class="fas fa-lock"></i>
-                    Create PIN
+                    <i class="fas fa-plus-circle"></i>
+                    Create New PIN
                 </button>
-                <p class="pin-hint">Your PIN will be stored securely on this device</p>
+                <div class="setup-divider"><span>OR</span></div>
+                <button id="sync-google-setup-btn" class="btn btn-google-setup">
+                    <i class="fab fa-google"></i>
+                    Sync Data from Google
+                </button>
+                <p class="pin-hint">Connect to Google if you already have an account on another device.</p>
             </div>
 
             <div id="pin-login" class="pin-login">

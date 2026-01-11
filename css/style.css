@@ -1649,3 +1649,48 @@ code {
     font-size: 1.1rem !important;
     margin-top: var(--spacing-xs);
 }
+
+/* PIN Setup Enhancements */
+.setup-divider {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.setup-divider::before,
+.setup-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    margin: 0 10px;
+}
+
+.btn-google-setup {
+    width: 100%;
+    padding: 12px;
+    background: #4285F4;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 10px;
+}
+
+.btn-google-setup:hover {
+    background: #3367D6;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+}
+
+.btn-google-setup i {
+    font-size: 1.1rem;
+}

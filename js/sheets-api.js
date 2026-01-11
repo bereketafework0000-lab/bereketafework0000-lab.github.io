@@ -5,8 +5,11 @@
 const SheetsAPI = {
     CLIENT_ID: '399988559636-h41n0ev5l4hni5mbdm84n2jaa64mmdpq.apps.googleusercontent.com', // User needs to replace this
     API_KEY: 'AIzaSyCY1JPzWbQLSWL4y_w9V4-4wcUxb9KcpVQ', // User needs to replace this
-    DISCOVERY_DOCS: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
-    SCOPES: 'https://www.googleapis.com/auth/spreadsheets',
+    DISCOVERY_DOCS: [
+        'https://sheets.googleapis.com/$discovery/rest?version=v4',
+        'https://www.googleapis.com/discovery/v1/rest?version=v3'
+    ],
+    SCOPES: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
 
     spreadsheetId: null,
     isConnected: false,
@@ -111,6 +114,11 @@ const SheetsAPI = {
 
             // Sync existing data
             await this.syncAllData();
+
+            // Sync security PIN if on a new device
+            if (window.Auth && !localStorage.getItem(window.Auth.PIN_KEY)) {
+                await window.Auth.syncFromCloud();
+            }
         };
 
         if (gapi.client.getToken() === null) {
@@ -162,25 +170,38 @@ const SheetsAPI = {
     async setupSpreadsheet() {
         try {
             if (!this.spreadsheetId) {
-                // Create new spreadsheet
-                const response = await gapi.client.sheets.spreadsheets.create({
-                    properties: {
-                        title: 'Business Manager Data'
-                    },
-                    sheets: [
-                        { properties: { title: 'Sales' } },
-                        { properties: { title: 'Expenses' } },
-                        { properties: { title: 'Tenders' } },
-                        { properties: { title: 'Services' } },
-                        { properties: { title: 'Customers' } }
-                    ]
+                // 1. Search for existing spreadsheet
+                const searchResponse = await gapi.client.drive.files.list({
+                    q: "name = 'Business Manager Data' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false",
+                    fields: 'files(id, name)',
+                    spaces: 'drive'
                 });
 
-                this.spreadsheetId = response.result.spreadsheetId;
-                localStorage.setItem('sheets_spreadsheet_id', this.spreadsheetId);
+                const files = searchResponse.result.files;
+                if (files && files.length > 0) {
+                    console.log('Found existing spreadsheet:', files[0].name);
+                    this.spreadsheetId = files[0].id;
+                } else {
+                    // 2. Create new spreadsheet if not found
+                    console.log('Creating new spreadsheet...');
+                    const response = await gapi.client.sheets.spreadsheets.create({
+                        properties: {
+                            title: 'Business Manager Data'
+                        },
+                        sheets: [
+                            { properties: { title: 'Sales' } },
+                            { properties: { title: 'Expenses' } },
+                            { properties: { title: 'Tenders' } },
+                            { properties: { title: 'Services' } },
+                            { properties: { title: 'Customers' } },
+                            { properties: { title: 'Settings' } }
+                        ]
+                    });
+                    this.spreadsheetId = response.result.spreadsheetId;
+                    await this.addHeaders();
+                }
 
-                // Add headers
-                await this.addHeaders();
+                localStorage.setItem('sheets_spreadsheet_id', this.spreadsheetId);
             }
         } catch (error) {
             console.error('Error setting up spreadsheet:', error);
@@ -200,6 +221,9 @@ const SheetsAPI = {
         ];
         const customerHeaders = [
             ['ID', 'Name', 'Phone', 'Email', 'Address', 'Balance']
+        ];
+        const settingsHeaders = [
+            ['Key', 'Value']
         ];
 
         // Add headers to Sales sheet
@@ -240,6 +264,14 @@ const SheetsAPI = {
             range: 'Customers!A1:F1',
             valueInputOption: 'RAW',
             resource: { values: customerHeaders }
+        });
+
+        // Add headers to Settings sheet
+        await gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: this.spreadsheetId,
+            range: 'Settings!A1:B1',
+            valueInputOption: 'RAW',
+            resource: { values: settingsHeaders }
         });
     },
 
@@ -399,6 +431,55 @@ const SheetsAPI = {
         } catch (error) {
             console.error('Error getting expenses:', error);
             return [];
+        }
+    },
+
+    async getSetting(key) {
+        if (!this.isConnected) return null;
+        try {
+            const response = await gapi.client.sheets.spreadsheets.values.get({
+                spreadsheetId: this.spreadsheetId,
+                range: 'Settings!A2:B100'
+            });
+            const values = response.result.values || [];
+            const row = values.find(r => r[0] === key);
+            return row ? row[1] : null;
+        } catch (error) {
+            console.error('Error getting setting:', error);
+            return null;
+        }
+    },
+
+    async setSetting(key, value) {
+        if (!this.isConnected) return;
+        try {
+            // Check if key already exists
+            const response = await gapi.client.sheets.spreadsheets.values.get({
+                spreadsheetId: this.spreadsheetId,
+                range: 'Settings!A2:B100'
+            });
+            const values = response.result.values || [];
+            const rowIndex = values.findIndex(r => r[0] === key);
+
+            if (rowIndex !== -1) {
+                // Update existing
+                await gapi.client.sheets.spreadsheets.values.update({
+                    spreadsheetId: this.spreadsheetId,
+                    range: `Settings!B${rowIndex + 2}`,
+                    valueInputOption: 'USER_ENTERED',
+                    resource: { values: [[value]] }
+                });
+            } else {
+                // Append new
+                await gapi.client.sheets.spreadsheets.values.append({
+                    spreadsheetId: this.spreadsheetId,
+                    range: 'Settings!A:B',
+                    valueInputOption: 'USER_ENTERED',
+                    resource: { values: [[key, value]] }
+                });
+            }
+        } catch (error) {
+            console.error('Error setting setting:', error);
         }
     },
 

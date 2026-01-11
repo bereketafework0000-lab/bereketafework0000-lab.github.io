@@ -19,7 +19,8 @@ const Auth = {
         loginBtn: null,
         loginError: null,
         resetPinBtn: null,
-        logoutBtn: null
+        logoutBtn: null,
+        syncGoogleBtn: null
     },
 
     init() {
@@ -42,7 +43,8 @@ const Auth = {
             loginBtn: document.getElementById('login-btn'),
             loginError: document.getElementById('login-error'),
             resetPinBtn: document.getElementById('reset-pin-btn'),
-            logoutBtn: document.getElementById('logout-btn')
+            logoutBtn: document.getElementById('logout-btn'),
+            syncGoogleBtn: document.getElementById('sync-google-setup-btn')
         };
     },
 
@@ -72,6 +74,29 @@ const Auth = {
         ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(event => {
             document.addEventListener(event, () => this.resetInactivityTimer());
         });
+
+        // Sync from Google (Setup screen)
+        if (this.elements.syncGoogleBtn) {
+            this.elements.syncGoogleBtn.addEventListener('click', () => this.handleGoogleSync());
+        }
+    },
+
+    async handleGoogleSync() {
+        if (window.SheetsAPI) {
+            try {
+                // If not connected, connect first
+                if (!window.SheetsAPI.isConnected) {
+                    await window.SheetsAPI.connect();
+                }
+
+                // After connection, sync PIN (this is also handled in SheetsAPI.connect callback now, 
+                // but we call it here explicitly to be sure and trigger UI updates)
+                await this.syncFromCloud();
+            } catch (error) {
+                console.error('Google Sync Error:', error);
+                alert('Failed to connect to Google. Please try again.');
+            }
+        }
     },
 
     checkAuth() {
@@ -105,7 +130,7 @@ const Auth = {
     showApp() {
         this.elements.loginScreen.classList.add('hidden');
         this.elements.app.classList.remove('hidden');
-        
+
         // Initialize app modules
         if (window.App && window.App.init) {
             window.App.init();
@@ -135,16 +160,38 @@ const Auth = {
         // Hash and store PIN
         const hashedPin = this.hashPin(pin);
         localStorage.setItem(this.PIN_KEY, hashedPin);
-        
+
+        // Sync to cloud if connected
+        if (window.SheetsAPI && window.SheetsAPI.isConnected) {
+            window.SheetsAPI.setSetting('pin_hash', hashedPin);
+        }
+
         // Create session
         sessionStorage.setItem(this.SESSION_KEY, Date.now());
-        
+
         // Clear inputs
         this.elements.setupPin.value = '';
         this.elements.confirmPin.value = '';
-        
+
         // Show app
         this.showApp();
+    },
+
+    async syncFromCloud() {
+        if (!window.SheetsAPI || !window.SheetsAPI.isConnected) return;
+
+        try {
+            const cloudPin = await window.SheetsAPI.getSetting('pin_hash');
+            if (cloudPin) {
+                localStorage.setItem(this.PIN_KEY, cloudPin);
+                alert('PIN synchronized from cloud! You can now log in.');
+                this.checkAuth();
+            } else {
+                console.log('No PIN found in cloud.');
+            }
+        } catch (error) {
+            console.error('Error syncing PIN from cloud:', error);
+        }
     },
 
     login() {
