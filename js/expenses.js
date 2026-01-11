@@ -60,10 +60,40 @@ const ExpensesManager = {
                 this.renderTable();
             }
 
-            // If connected to Google Sheets, sync
+            // If connected to Google Sheets, sync and merge
             if (window.SheetsAPI && window.SheetsAPI.isConnected) {
-                const sheetsExpenses = await SheetsAPI.getExpenses();
-                // Merge logic here if needed
+                try {
+                    const sheetsExpenses = await SheetsAPI.getExpenses();
+
+                    // Only update if we got data from sheets
+                    if (sheetsExpenses.length > 0) {
+                        // 1. Get local unsynced items to preserve them
+                        const unsynced = await OfflineManager.getUnsynced('expenses');
+
+                        // 2. Clear local store to remove stale data
+                        await OfflineManager.clear('expenses');
+
+                        // 3. Save Sheets data (marked as synced)
+                        const toSave = sheetsExpenses.map(e => ({
+                            ...e,
+                            synced: true,
+                            timestamp: Date.now()
+                        }));
+                        await OfflineManager.saveData('expenses', toSave);
+
+                        // 4. Restore unsynced local items
+                        if (unsynced.length > 0) {
+                            await OfflineManager.saveData('expenses', unsynced);
+                        }
+
+                        // 5. Reload merged data
+                        this.expenses = await OfflineManager.getAll('expenses');
+                        this.filteredExpenses = [...this.expenses];
+                        this.renderTable();
+                    }
+                } catch (syncError) {
+                    console.error('Sync merge error:', syncError);
+                }
             }
         } catch (error) {
             console.error('Error loading expenses:', error);

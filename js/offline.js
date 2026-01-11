@@ -225,6 +225,18 @@ const OfflineManager = {
         return this.getAll(storeName);
     },
 
+    async clear(storeName) {
+        const db = await this.getDb();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([storeName], 'readwrite');
+            const store = transaction.objectStore(storeName);
+            const request = store.clear();
+
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    },
+
     registerServiceWorker() {
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/service-worker.js')

@@ -60,10 +60,40 @@ const SalesManager = {
                 this.renderTable();
             }
 
-            // If connected to Google Sheets, sync
+            // If connected to Google Sheets, sync and merge
             if (window.SheetsAPI && window.SheetsAPI.isConnected) {
-                const sheetsSales = await SheetsAPI.getSales();
-                // Merge logic here if needed
+                try {
+                    const sheetsSales = await SheetsAPI.getSales();
+
+                    // Only update if we got data from sheets
+                    if (sheetsSales.length > 0) {
+                        // 1. Get local unsynced items to preserve them
+                        const unsynced = await OfflineManager.getUnsynced('sales');
+
+                        // 2. Clear local store to remove stale data
+                        await OfflineManager.clear('sales');
+
+                        // 3. Save Sheets data (marked as synced)
+                        const toSave = sheetsSales.map(s => ({
+                            ...s,
+                            synced: true,
+                            timestamp: Date.now()
+                        }));
+                        await OfflineManager.saveData('sales', toSave);
+
+                        // 4. Restore unsynced local items
+                        if (unsynced.length > 0) {
+                            await OfflineManager.saveData('sales', unsynced);
+                        }
+
+                        // 5. Reload merged data
+                        this.sales = await OfflineManager.getAll('sales');
+                        this.filteredSales = [...this.sales];
+                        this.renderTable();
+                    }
+                } catch (syncError) {
+                    console.error('Sync merge error:', syncError);
+                }
             }
         } catch (error) {
             console.error('Error loading sales:', error);
