@@ -194,6 +194,7 @@ const SheetsAPI = {
                             { properties: { title: 'Tenders' } },
                             { properties: { title: 'Services' } },
                             { properties: { title: 'Customers' } },
+                            { properties: { title: 'Companies' } },
                             { properties: { title: 'Settings' } }
                         ]
                     });
@@ -224,6 +225,9 @@ const SheetsAPI = {
         ];
         const settingsHeaders = [
             ['Key', 'Value']
+        ];
+        const companyHeaders = [
+            ['ID', 'Name', 'Contact', 'Phone', 'Email']
         ];
 
         // Add headers to Sales sheet
@@ -272,6 +276,14 @@ const SheetsAPI = {
             range: 'Settings!A1:B1',
             valueInputOption: 'RAW',
             resource: { values: settingsHeaders }
+        });
+
+        // Add headers to Companies sheet
+        await gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: this.spreadsheetId,
+            range: 'Companies!A1:E1',
+            valueInputOption: 'RAW',
+            resource: { values: companyHeaders }
         });
     },
 
@@ -388,6 +400,57 @@ const SheetsAPI = {
         }
     },
 
+    async addCustomer(customer) {
+        if (!this.isConnected) return;
+        this.setSyncStatus('syncing');
+        try {
+            const values = [[
+                customer.id,
+                customer.name,
+                customer.phone,
+                customer.email,
+                customer.address,
+                customer.balance
+            ]];
+
+            await gapi.client.sheets.spreadsheets.values.append({
+                spreadsheetId: this.spreadsheetId,
+                range: 'Customers!A:F',
+                valueInputOption: 'USER_ENTERED',
+                resource: { values }
+            });
+            this.setSyncStatus('synced');
+        } catch (error) {
+            console.error('Error adding customer:', error);
+            this.setSyncStatus('synced');
+        }
+    },
+
+    async addTenderCompany(company) {
+        if (!this.isConnected) return;
+        this.setSyncStatus('syncing');
+        try {
+            const values = [[
+                company.id,
+                company.name,
+                company.contact,
+                company.phone,
+                company.email
+            ]];
+
+            await gapi.client.sheets.spreadsheets.values.append({
+                spreadsheetId: this.spreadsheetId,
+                range: 'Companies!A:E',
+                valueInputOption: 'USER_ENTERED',
+                resource: { values }
+            });
+            this.setSyncStatus('synced');
+        } catch (error) {
+            console.error('Error adding company:', error);
+            this.setSyncStatus('synced');
+        }
+    },
+
     async getSales() {
         if (!this.isConnected) return [];
 
@@ -430,6 +493,99 @@ const SheetsAPI = {
             }));
         } catch (error) {
             console.error('Error getting expenses:', error);
+            return [];
+        }
+    },
+
+    async getTenders() {
+        if (!this.isConnected) return [];
+        try {
+            const response = await gapi.client.sheets.spreadsheets.values.get({
+                spreadsheetId: this.spreadsheetId,
+                range: 'Tenders!A2:I'
+            });
+            const values = response.result.values || [];
+            return values.map(row => ({
+                id: row[0],
+                reference: row[1] || '',
+                title: row[2] || '',
+                companyId: row[3] || '',
+                status: row[4] || '',
+                submissionDate: row[5] || '',
+                bidAmount: parseFloat(row[6]) || 0,
+                awardAmount: parseFloat(row[7]) || 0,
+                expenses: JSON.parse(row[8] || '[]')
+            }));
+        } catch (error) {
+            console.error('Error getting tenders:', error);
+            return [];
+        }
+    },
+
+    async getTenderCompanies() {
+        if (!this.isConnected) return [];
+        try {
+            const response = await gapi.client.sheets.spreadsheets.values.get({
+                spreadsheetId: this.spreadsheetId,
+                range: 'Companies!A2:E'
+            });
+            const values = response.result.values || [];
+            return values.map(row => ({
+                id: row[0],
+                name: row[1] || '',
+                contact: row[2] || '',
+                phone: row[3] || '',
+                email: row[4] || ''
+            }));
+        } catch (error) {
+            console.error('Error getting companies:', error);
+            return [];
+        }
+    },
+
+    async getServices() {
+        if (!this.isConnected) return [];
+        try {
+            const response = await gapi.client.sheets.spreadsheets.values.get({
+                spreadsheetId: this.spreadsheetId,
+                range: 'Services!A2:I'
+            });
+            const values = response.result.values || [];
+            return values.map(row => ({
+                id: row[0],
+                customer: row[1] || '',
+                device: row[2] || '',
+                problem: row[3] || '',
+                status: row[4] || '',
+                receivedDate: row[5] || '',
+                dueDate: row[6] || '',
+                amount: parseFloat(row[7]) || 0,
+                notes: row[8] || ''
+            }));
+        } catch (error) {
+            console.error('Error getting services:', error);
+            return [];
+        }
+    },
+
+    async getCustomers() {
+        if (!this.isConnected) return [];
+        try {
+            const response = await gapi.client.sheets.spreadsheets.values.get({
+                spreadsheetId: this.spreadsheetId,
+                range: 'Customers!A2:F'
+            });
+            const values = response.result.values || [];
+            return values.map(row => ({
+                id: row[0],
+                name: row[1] || '',
+                phone: row[2] || '',
+                email: row[3] || '',
+                address: row[4] || '',
+                balance: parseFloat(row[5]) || 0
+            }));
+        } catch (error) {
+            console.error('Error getting customers:', error);
             return [];
         }
     },
@@ -518,12 +674,19 @@ const SheetsAPI = {
                 await OfflineManager.markAsSynced('services', service.id);
             }
 
-            // Fetch updated data from Sheets
-            const sheetsSales = await this.getSales();
-            const sheetsExpenses = await this.getExpenses();
+            // Sync Customers
+            const unsyncedCustomers = await OfflineManager.getUnsynced('customers');
+            for (const customer of unsyncedCustomers) {
+                await this.addCustomer(customer);
+                await OfflineManager.markAsSynced('customers', customer.id);
+            }
 
-            // Merge with local data (basic merge strategy)
-            // In production, implement proper conflict resolution
+            // Sync Tender Companies
+            const unsyncedCompanies = await OfflineManager.getUnsynced('tenderCompanies');
+            for (const company of unsyncedCompanies) {
+                await this.addTenderCompany(company);
+                await OfflineManager.markAsSynced('tenderCompanies', company.id);
+            }
 
             this.setSyncStatus('synced');
             console.log('Sync completed successfully');

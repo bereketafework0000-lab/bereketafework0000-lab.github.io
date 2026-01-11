@@ -36,7 +36,43 @@ const ServicesManager = {
 
     async loadServices() {
         try {
+            // Load from IndexedDB
             this.services = await OfflineManager.getData('services') || [];
+            this.render();
+
+            // If connected to Google Sheets, sync and merge
+            if (window.SheetsAPI && window.SheetsAPI.isConnected) {
+                try {
+                    const sheetsData = await SheetsAPI.getServices();
+
+                    if (sheetsData.length > 0) {
+                        // 1. Get local unsynced items to preserve them
+                        const unsynced = await OfflineManager.getUnsynced('services');
+
+                        // 2. Clear local store
+                        await OfflineManager.clear('services');
+
+                        // 3. Save Sheets data (marked as synced)
+                        const toSave = sheetsData.map(s => ({
+                            ...s,
+                            synced: true,
+                            timestamp: Date.now()
+                        }));
+                        await OfflineManager.saveData('services', toSave);
+
+                        // 4. Restore unsynced local items
+                        if (unsynced.length > 0) {
+                            await OfflineManager.saveData('services', unsynced);
+                        }
+
+                        // 5. Reload merged data
+                        this.services = await OfflineManager.getData('services');
+                        this.render();
+                    }
+                } catch (syncError) {
+                    console.error('Services sync merge error:', syncError);
+                }
+            }
         } catch (error) {
             console.error('Error loading services:', error);
             this.services = [];
@@ -71,6 +107,11 @@ const ServicesManager = {
             // Add new
             this.services.push(service);
             await OfflineManager.save('services', service);
+        }
+
+        // Immediate sync if online
+        if (window.SheetsAPI && window.SheetsAPI.isConnected) {
+            await SheetsAPI.addService(service);
         }
         this.closeModal();
         this.render();

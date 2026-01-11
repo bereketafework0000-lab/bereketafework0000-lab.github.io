@@ -36,7 +36,43 @@ const CustomersManager = {
 
     async loadCustomers() {
         try {
+            // Load from IndexedDB
             this.customers = await OfflineManager.getData('customers') || [];
+            this.render();
+
+            // If connected to Google Sheets, sync and merge
+            if (window.SheetsAPI && window.SheetsAPI.isConnected) {
+                try {
+                    const sheetsData = await SheetsAPI.getCustomers();
+
+                    if (sheetsData.length > 0) {
+                        // 1. Get local unsynced items
+                        const unsynced = await OfflineManager.getUnsynced('customers');
+
+                        // 2. Clear local store
+                        await OfflineManager.clear('customers');
+
+                        // 3. Save Sheets data
+                        const toSave = sheetsData.map(c => ({
+                            ...c,
+                            synced: true,
+                            timestamp: Date.now()
+                        }));
+                        await OfflineManager.saveData('customers', toSave);
+
+                        // 4. Restore unsynced
+                        if (unsynced.length > 0) {
+                            await OfflineManager.saveData('customers', unsynced);
+                        }
+
+                        // 5. Reload
+                        this.customers = await OfflineManager.getData('customers');
+                        this.render();
+                    }
+                } catch (syncError) {
+                    console.error('Customers sync merge error:', syncError);
+                }
+            }
         } catch (error) {
             console.error('Error loading customers:', error);
             this.customers = [];
@@ -69,6 +105,11 @@ const CustomersManager = {
             // Add new
             this.customers.push(customer);
             await OfflineManager.save('customers', customer);
+        }
+
+        // Immediate sync if online
+        if (window.SheetsAPI && window.SheetsAPI.isConnected) {
+            await SheetsAPI.addCustomer(customer);
         }
         this.closeModal();
         this.render();

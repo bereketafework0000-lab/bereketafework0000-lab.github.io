@@ -301,6 +301,20 @@ const OfflineManager = {
                     await window.SheetsAPI.addService(service);
                     await this.markAsSynced('services', service.id);
                 }
+
+                // Sync Customers
+                const unsyncedCustomers = await this.getUnsynced('customers');
+                for (const customer of unsyncedCustomers) {
+                    await window.SheetsAPI.addCustomer(customer);
+                    await this.markAsSynced('customers', customer.id);
+                }
+
+                // Sync Tender Companies
+                const unsyncedCompanies = await this.getUnsynced('tenderCompanies');
+                for (const company of unsyncedCompanies) {
+                    await window.SheetsAPI.addTenderCompany(company);
+                    await this.markAsSynced('tenderCompanies', company.id);
+                }
             }
 
             console.log('Sync completed successfully');

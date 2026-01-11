@@ -67,8 +67,47 @@ const TendersManager = {
 
     async loadData() {
         try {
+            // Load from IndexedDB
             this.companies = await OfflineManager.getData('tenderCompanies') || [];
             this.tenders = await OfflineManager.getData('tenders') || [];
+            this.render();
+            this.updateStats();
+            this.updateCompanyDropdowns();
+
+            // If connected to Google Sheets, sync and merge
+            if (window.SheetsAPI && window.SheetsAPI.isConnected) {
+                try {
+                    // 1. Sync Companies
+                    const sheetsCompanies = await SheetsAPI.getTenderCompanies();
+                    if (sheetsCompanies.length > 0) {
+                        const unsyncedComp = await OfflineManager.getUnsynced('tenderCompanies');
+                        await OfflineManager.clear('tenderCompanies');
+                        const compsToSave = sheetsCompanies.map(c => ({ ...c, synced: true, timestamp: Date.now() }));
+                        await OfflineManager.saveData('tenderCompanies', compsToSave);
+                        if (unsyncedComp.length > 0) await OfflineManager.saveData('tenderCompanies', unsyncedComp);
+                    }
+
+                    // 2. Sync Tenders
+                    const sheetsTenders = await SheetsAPI.getTenders();
+                    if (sheetsTenders.length > 0) {
+                        const unsyncedTenders = await OfflineManager.getUnsynced('tenders');
+                        await OfflineManager.clear('tenders');
+                        const tendersToSave = sheetsTenders.map(t => ({ ...t, synced: true, timestamp: Date.now() }));
+                        await OfflineManager.saveData('tenders', tendersToSave);
+                        if (unsyncedTenders.length > 0) await OfflineManager.saveData('tenders', unsyncedTenders);
+                    }
+
+                    // 3. Reload everything
+                    this.companies = await OfflineManager.getData('tenderCompanies') || [];
+                    this.tenders = await OfflineManager.getData('tenders') || [];
+                    this.render();
+                    this.updateStats();
+                    this.updateCompanyDropdowns();
+
+                } catch (syncError) {
+                    console.error('Tenders sync merge error:', syncError);
+                }
+            }
         } catch (error) {
             console.error('Error loading tenders:', error);
         }
@@ -98,6 +137,11 @@ const TendersManager = {
         } else {
             this.companies.push(company);
             await OfflineManager.save('tenderCompanies', company);
+        }
+
+        // Immediate sync if online
+        if (window.SheetsAPI && window.SheetsAPI.isConnected) {
+            await SheetsAPI.addTenderCompany(company);
         }
 
         this.closeModal('tender-company-modal');
@@ -211,6 +255,11 @@ const TendersManager = {
         } else {
             this.tenders.push(tender);
             await OfflineManager.save('tenders', tender);
+        }
+
+        // Immediate sync if online
+        if (window.SheetsAPI && window.SheetsAPI.isConnected) {
+            await SheetsAPI.addTender(tender);
         }
 
         this.closeModal('tender-modal');
