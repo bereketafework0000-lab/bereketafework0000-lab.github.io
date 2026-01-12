@@ -84,17 +84,23 @@ const Auth = {
     async handleGoogleSync() {
         if (window.SheetsAPI) {
             try {
+                // Check for protocol error first (if it was detected during init)
+                if (window.location.protocol === 'file:') {
+                    alert('Google Sync is not supported when opening the file directly (file://). Please use the GitHub Pages link or a local server (like Live Server).');
+                    return;
+                }
+
                 // If not connected, connect first
                 if (!window.SheetsAPI.isConnected) {
                     await window.SheetsAPI.connect();
                 }
 
-                // After connection, sync PIN (this is also handled in SheetsAPI.connect callback now, 
-                // but we call it here explicitly to be sure and trigger UI updates)
+                // After connection, sync PIN
                 await this.syncFromCloud();
             } catch (error) {
                 console.error('Google Sync Error:', error);
-                alert('Failed to connect to Google. Please try again.');
+                const msg = error.details || error.message || error.error || 'Connection failed';
+                alert('Failed to connect to Google: ' + msg + '\n\nPlease ensure you are not using file:// and your internet is active.');
             }
         }
     },

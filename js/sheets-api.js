@@ -20,43 +20,70 @@ const SheetsAPI = {
     async init() {
         this.cacheElements();
         this.loadCredentials();
-        this.initializeGoogleAPIs();
-    },
+        if (this.checkProtocol()) {
+            await this.initializeGoogleAPIs();
 
-    cacheElements() {
-        this.elements = {
-            connectBtn: document.getElementById('google-connect-btn'),
-            googleStatus: document.getElementById('google-status'),
-            syncIcon: document.getElementById('sync-icon'),
-            syncText: document.getElementById('sync-text')
-        };
-
-        this.elements.connectBtn.addEventListener('click', () => this.handleAuthClick());
-    },
-
-    loadCredentials() {
-        // Load spreadsheet ID from localStorage
-        this.spreadsheetId = localStorage.getItem('sheets_spreadsheet_id');
-        const savedConnection = localStorage.getItem('sheets_connected');
-
-        if (savedConnection === 'true' && this.spreadsheetId) {
-            this.isConnected = true;
-            this.updateConnectionStatus(true);
+            // If previously connected, try to get a token silently
+            if (this.isConnected) {
+                try {
+                    await this.ensureToken(true); // Silent request
+                } catch (e) {
+                    console.log('Silent token request failed, user may need to re-authenticate');
+                }
+            }
         }
     },
 
     initializeGoogleAPIs() {
-        // Load the gapi library
-        if (typeof gapi !== 'undefined') {
-            gapi.load('client', async () => {
-                await this.gapiInit();
-            });
-        }
+        return new Promise((resolve) => {
+            let gapiReady = false;
+            let gisReady = false;
 
-        // Load the GIS library
-        if (typeof google !== 'undefined') {
-            this.gisInit();
-        }
+            const checkReady = () => {
+                if (gapiReady && gisReady) resolve();
+            };
+
+            // Load the gapi library
+            if (typeof gapi !== 'undefined') {
+                gapi.load('client', async () => {
+                    await this.gapiInit();
+                    gapiReady = true;
+                    checkReady();
+                });
+            } else {
+                gapiReady = true; // Skip if script failed to load
+            }
+
+            // Load the GIS library
+            if (typeof google !== 'undefined') {
+                this.gisInit();
+                gisReady = true;
+                checkReady();
+            } else {
+                gisReady = true;
+            }
+        });
+    },
+
+    ensureToken(silent = false) {
+        return new Promise((resolve, reject) => {
+            if (!this.gisInited) return reject('GIS not initialized');
+
+            if (gapi.client.getToken()) return resolve();
+
+            this.tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    return reject(resp);
+                }
+                resolve();
+            };
+
+            if (silent) {
+                this.tokenClient.requestAccessToken({ prompt: '' });
+            } else {
+                this.tokenClient.requestAccessToken({ prompt: 'consent' });
+            }
+        });
     },
 
     async gapiInit() {
@@ -69,6 +96,7 @@ const SheetsAPI = {
             this.maybeEnableButtons();
         } catch (error) {
             console.error('Error initializing GAPI:', error);
+            this.updateConnectionStatus(false, 'GAPI Init Failed: ' + (error.details || error.message || 'Unknown error'));
         }
     },
 
@@ -83,6 +111,7 @@ const SheetsAPI = {
             this.maybeEnableButtons();
         } catch (error) {
             console.error('Error initializing GIS:', error);
+            this.updateConnectionStatus(false, 'GIS Init Failed: Check Client ID');
         }
     },
 
@@ -100,11 +129,9 @@ const SheetsAPI = {
         }
     },
 
-    connect() {
-        this.tokenClient.callback = async (resp) => {
-            if (resp.error !== undefined) {
-                throw (resp);
-            }
+    async connect() {
+        try {
+            await this.ensureToken(false); // Interactive prompt
 
             // Successfully authenticated
             await this.setupSpreadsheet();
@@ -119,12 +146,9 @@ const SheetsAPI = {
             if (window.Auth && !localStorage.getItem(window.Auth.PIN_KEY)) {
                 await window.Auth.syncFromCloud();
             }
-        };
-
-        if (gapi.client.getToken() === null) {
-            this.tokenClient.requestAccessToken({ prompt: 'consent' });
-        } else {
-            this.tokenClient.requestAccessToken({ prompt: '' });
+        } catch (error) {
+            console.error('Authentication failed:', error);
+            throw error;
         }
     },
 
@@ -140,15 +164,19 @@ const SheetsAPI = {
         this.updateConnectionStatus(false);
     },
 
-    updateConnectionStatus(connected) {
+    updateConnectionStatus(connected, errorMessage = null) {
         if (connected) {
             this.elements.googleStatus.textContent = 'Connected';
             this.elements.connectBtn.classList.add('connected');
             this.setSyncStatus('synced');
+            this.elements.connectBtn.title = 'Google Account Connected';
         } else {
-            this.elements.googleStatus.textContent = 'Connect Google';
+            this.elements.googleStatus.textContent = errorMessage || 'Connect Google';
             this.elements.connectBtn.classList.remove('connected');
             this.setSyncStatus('offline');
+            if (errorMessage) {
+                this.elements.connectBtn.title = errorMessage;
+            }
         }
     },
 
@@ -212,7 +240,7 @@ const SheetsAPI = {
 
     async addHeaders() {
         const headers = [
-            ['Date', 'Description', 'Category', 'Amount']
+            ['ID', 'Date', 'Description', 'Category', 'Amount']
         ];
         const tenderHeaders = [
             ['ID', 'Reference', 'Title', 'Client', 'Status', 'Date', 'Bid Amount', 'Award Amount', 'Expenses']
@@ -233,7 +261,7 @@ const SheetsAPI = {
         // Add headers to Sales sheet
         await gapi.client.sheets.spreadsheets.values.update({
             spreadsheetId: this.spreadsheetId,
-            range: 'Sales!A1:D1',
+            range: 'Sales!A1:E1',
             valueInputOption: 'RAW',
             resource: { values: headers }
         });
@@ -241,7 +269,7 @@ const SheetsAPI = {
         // Add headers to Expenses sheet
         await gapi.client.sheets.spreadsheets.values.update({
             spreadsheetId: this.spreadsheetId,
-            range: 'Expenses!A1:D1',
+            range: 'Expenses!A1:E1',
             valueInputOption: 'RAW',
             resource: { values: headers }
         });
@@ -289,11 +317,11 @@ const SheetsAPI = {
 
     async addSale(sale) {
         if (!this.isConnected) return;
-
         this.setSyncStatus('syncing');
-
         try {
+            await this.ensureToken(true);
             const values = [[
+                sale.id,
                 sale.date,
                 sale.description,
                 sale.category,
@@ -302,7 +330,7 @@ const SheetsAPI = {
 
             await gapi.client.sheets.spreadsheets.values.append({
                 spreadsheetId: this.spreadsheetId,
-                range: 'Sales!A:D',
+                range: 'Sales!A:E',
                 valueInputOption: 'USER_ENTERED',
                 resource: { values }
             });
@@ -316,11 +344,11 @@ const SheetsAPI = {
 
     async addExpense(expense) {
         if (!this.isConnected) return;
-
         this.setSyncStatus('syncing');
-
         try {
+            await this.ensureToken(true);
             const values = [[
+                expense.id,
                 expense.date,
                 expense.description,
                 expense.category,
@@ -329,7 +357,7 @@ const SheetsAPI = {
 
             await gapi.client.sheets.spreadsheets.values.append({
                 spreadsheetId: this.spreadsheetId,
-                range: 'Expenses!A:D',
+                range: 'Expenses!A:E',
                 valueInputOption: 'USER_ENTERED',
                 resource: { values }
             });
@@ -345,6 +373,7 @@ const SheetsAPI = {
         if (!this.isConnected) return;
         this.setSyncStatus('syncing');
         try {
+            await this.ensureToken(true);
             const expensesStr = tender.expenses ? JSON.stringify(tender.expenses) : '[]';
             const values = [[
                 tender.id,
@@ -375,6 +404,7 @@ const SheetsAPI = {
         if (!this.isConnected) return;
         this.setSyncStatus('syncing');
         try {
+            await this.ensureToken(true);
             const values = [[
                 service.id,
                 service.customer,
@@ -404,6 +434,7 @@ const SheetsAPI = {
         if (!this.isConnected) return;
         this.setSyncStatus('syncing');
         try {
+            await this.ensureToken(true);
             const values = [[
                 customer.id,
                 customer.name,
@@ -430,6 +461,7 @@ const SheetsAPI = {
         if (!this.isConnected) return;
         this.setSyncStatus('syncing');
         try {
+            await this.ensureToken(true);
             const values = [[
                 company.id,
                 company.name,
@@ -453,20 +485,20 @@ const SheetsAPI = {
 
     async getSales() {
         if (!this.isConnected) return [];
-
         try {
+            await this.ensureToken(true);
             const response = await gapi.client.sheets.spreadsheets.values.get({
                 spreadsheetId: this.spreadsheetId,
-                range: 'Sales!A2:D' // Skip header row
+                range: 'Sales!A2:E' // Skip header row
             });
 
             const values = response.result.values || [];
-            return values.map((row, index) => ({
-                id: index + 1,
-                date: row[0] || '',
-                description: row[1] || '',
-                category: row[2] || '',
-                amount: parseFloat(row[3]) || 0
+            return values.map((row) => ({
+                id: isNaN(row[0]) ? row[0] : parseInt(row[0]),
+                date: row[1] || '',
+                description: row[2] || '',
+                category: row[3] || '',
+                amount: parseFloat(row[4]) || 0
             }));
         } catch (error) {
             console.error('Error getting sales:', error);
@@ -476,20 +508,20 @@ const SheetsAPI = {
 
     async getExpenses() {
         if (!this.isConnected) return [];
-
         try {
+            await this.ensureToken(true);
             const response = await gapi.client.sheets.spreadsheets.values.get({
                 spreadsheetId: this.spreadsheetId,
-                range: 'Expenses!A2:D' // Skip header row
+                range: 'Expenses!A2:E' // Skip header row
             });
 
             const values = response.result.values || [];
-            return values.map((row, index) => ({
-                id: index + 1,
-                date: row[0] || '',
-                description: row[1] || '',
-                category: row[2] || '',
-                amount: parseFloat(row[3]) || 0
+            return values.map((row) => ({
+                id: isNaN(row[0]) ? row[0] : parseInt(row[0]),
+                date: row[1] || '',
+                description: row[2] || '',
+                category: row[3] || '',
+                amount: parseFloat(row[4]) || 0
             }));
         } catch (error) {
             console.error('Error getting expenses:', error);
@@ -500,6 +532,7 @@ const SheetsAPI = {
     async getTenders() {
         if (!this.isConnected) return [];
         try {
+            await this.ensureToken(true);
             const response = await gapi.client.sheets.spreadsheets.values.get({
                 spreadsheetId: this.spreadsheetId,
                 range: 'Tenders!A2:I'
@@ -525,6 +558,7 @@ const SheetsAPI = {
     async getTenderCompanies() {
         if (!this.isConnected) return [];
         try {
+            await this.ensureToken(true);
             const response = await gapi.client.sheets.spreadsheets.values.get({
                 spreadsheetId: this.spreadsheetId,
                 range: 'Companies!A2:E'
@@ -546,6 +580,7 @@ const SheetsAPI = {
     async getServices() {
         if (!this.isConnected) return [];
         try {
+            await this.ensureToken(true);
             const response = await gapi.client.sheets.spreadsheets.values.get({
                 spreadsheetId: this.spreadsheetId,
                 range: 'Services!A2:I'
@@ -571,6 +606,7 @@ const SheetsAPI = {
     async getCustomers() {
         if (!this.isConnected) return [];
         try {
+            await this.ensureToken(true);
             const response = await gapi.client.sheets.spreadsheets.values.get({
                 spreadsheetId: this.spreadsheetId,
                 range: 'Customers!A2:F'
@@ -593,6 +629,7 @@ const SheetsAPI = {
     async getSetting(key) {
         if (!this.isConnected) return null;
         try {
+            await this.ensureToken(true);
             const response = await gapi.client.sheets.spreadsheets.values.get({
                 spreadsheetId: this.spreadsheetId,
                 range: 'Settings!A2:B100'
@@ -609,6 +646,7 @@ const SheetsAPI = {
     async setSetting(key, value) {
         if (!this.isConnected) return;
         try {
+            await this.ensureToken(true);
             // Check if key already exists
             const response = await gapi.client.sheets.spreadsheets.values.get({
                 spreadsheetId: this.spreadsheetId,
@@ -689,7 +727,17 @@ const SheetsAPI = {
             }
 
             this.setSyncStatus('synced');
-            console.log('Sync completed successfully');
+            console.log('Sync completed successfully. Refreshing local data...');
+
+            // Pulse reload all components to fetch latest from cloud
+            if (window.SalesManager) await SalesManager.loadSales();
+            if (window.ExpensesManager) await ExpensesManager.loadExpenses();
+            if (window.ServicesManager) await ServicesManager.loadServices();
+            if (window.CustomersManager) await CustomersManager.loadCustomers();
+            if (window.TendersManager) await TendersManager.loadData();
+
+            // Refresh dashboard if visible
+            if (window.Dashboard) Dashboard.updateStats();
         } catch (error) {
             console.error('Sync error:', error);
             this.setSyncStatus('synced');

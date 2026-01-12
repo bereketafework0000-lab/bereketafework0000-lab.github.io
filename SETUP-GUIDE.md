@@ -91,12 +91,13 @@ git push
 
 After your GitHub Pages site is deployed:
 
-1. Go back to Google Cloud Console
-2. **APIs & Services** → **Credentials**
-3. Click on your OAuth 2.0 Client ID
-4. Under **Authorized JavaScript origins**, ensure you have:
+1. Go back to [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials)
+2. Click on your **OAuth 2.0 Client ID** (Business Manager Web Client)
+3. Under **Authorized JavaScript origins**, ensure you have:
    - `https://yourusername.github.io` (your actual GitHub Pages URL)
-5. Click **Save**
+   - **Note**: DO NOT include a trailing slash (e.g., `...github.io/` is WRONG)
+4. Click **Save**
+5. **IMPORTANT**: Changes can take up to 5-10 minutes to propagate. Clear your browser cache or use an Incognito window to test.
 
 ## Step 7: Test the Integration
 
@@ -113,6 +114,14 @@ After your GitHub Pages site is deployed:
 ### Error: "Access blocked: This app's request is invalid"
 
 **Solution**: Make sure your authorized JavaScript origins match exactly with your deployment URL. No trailing slashes.
+
+### Error: "Failed to connect to Google" on Live Site
+
+**Solution**: 
+1. **Authorized Origins**: Ensure `https://yourusername.github.io` is added to your OAuth Client ID origins.
+2. **API Key Restrictions**: If your API Key has website restrictions, ensure your GitHub URL is listed there as well.
+3. **Wait**: After saving in Google Cloud Console, wait 10 minutes.
+4. **Deploy**: Ensure you have pushed the latest code changes (with improved error reporting) to GitHub.
 
 ### Error: "The OAuth client was not found"
 
